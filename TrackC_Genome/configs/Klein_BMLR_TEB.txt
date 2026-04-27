@@ -1,0 +1,30 @@
+# python train.py -c configs/Klein_BMLR_TEB.txt
+
+
+# Output settings
+run_name = TEB_lines_klein_bmlr
+output_dir = output
+data_path = code/gene/data
+benchmark = TEB
+
+# General settings
+device = cuda:0
+
+# Experiment settings
+seed = 1
+length = 1000
+
+# General training hyperparameters
+lr = 0.00001
+optimizer = Adam
+
+# Model selection
+num_channels = 32
+embedding_dim = 528
+manifold = klein_bmlr
+
+# Klein geometry settings
+clip_r = 1.0
+
+# Dataset settings
+dataset_name = lines

@@ -1,0 +1,71 @@
+# =============== Python ===============
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+
+# =============== Virtual envs ===============
+venv/
+env/
+.venv/
+.env/
+
+# =============== Notebooks ===============
+.ipynb_checkpoints/
+
+# =============== IDE / OS ===============
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# =============== Datasets (download separately) ===============
+data/
+gene_data/
+**/data/care_graph/
+**/data/raw/
+**/data/processed/
+**/data/embeddings/
+
+# =============== Model checkpoints / logs ===============
+*.pt
+*.pth
+*.ckpt
+*.tar.gz
+runs/
+logs/
+outputs/
+results/
+wandb/
+mlruns/
+tensorboard/
+tensorboard_logs/
+
+# =============== Microbench output ===============
+bn_microbench_results.csv
+bn_microbench_results.md
+*_results_*.csv
+*_results_*.md
+
+# =============== Third-party forks (track separately, see MODIFICATIONS.md) ===============
+HBNN-main/
+GyroBN-main/
+PoinnCARE-main/
+TrackC_Genome/data/
+TrackC_Genome/results/
+TrackC_Genome/logs/
+
+# =============== Misc ===============
+*.log
+*.tmp
+*.bak
+.cache/
