@@ -1,102 +1,94 @@
-# Klein & PV Neural Network Layers
+# Klein Neural Network Layers
 
-Hyperbolic fully connected (FC) layers on the **Klein ball** and **Proper Velocity (PV)** manifolds, extending the [GyroBN](https://github.com/GitZH-Chen/GyroBN) and [HBNN](https://github.com/GitZH-Chen/HBNN) frameworks.
+Closed-form neural network layers on the **Klein ball** model of hyperbolic geometry, built on the Einstein gyrovector structure.
 
-## Overview
+| Layer | Description |
+|-------|-------------|
+| `KleinFC` | Geodesic-hyperplane fully connected layer |
+| `KleinBFC` | Busemann-horosphere fully connected layer |
+| `KleinMLR` | Geodesic-hyperplane multinomial logistic regression |
+| `KleinBMLR` | Busemann-horosphere multinomial logistic regression |
+| `KleinEinsteinBN` | Closed-form Einstein-midpoint batch normalization |
 
-We introduce geodesic hyperplane FC and Busemann FC layers on two under-explored hyperbolic models:
-
-| Space | FC Layer | Busemann FC Layer | MLR | Busemann MLR |
-|-------|----------|-------------------|-----|--------------|
-| **Klein ball** | KleinFC (Thm 5.5) | KleinBFC (Thm 5.6) | KleinMLR | KleinBMLR |
-| **PV space** | PVFC | PVBFC | PVMLR | PVBMLR |
-
-These layers are drop-in replacements for existing Poincare/Lorentz FC layers in the GyroBN training framework.
+All layers are drop-in replacements for the Poincaré / Lorentz counterparts in the [GyroBN](https://github.com/GitZH-Chen/GyroBN) and [HBNN](https://github.com/GitZH-Chen/HBNN) training frameworks.
 
 ## Repository Structure
 
 ```
-code/
-├── klein_nn/                   # Our contribution: Klein & PV layers
-│   ├── manifold.py             # Klein manifold operations
+.
+├── klein_nn/                 # Core library (this work)
+│   ├── manifold.py           # Klein manifold operations
 │   └── layers/
-│       ├── fc.py               # KleinFC  — geodesic hyperplane FC
-│       ├── bfc.py              # KleinBFC — Busemann horosphere FC
-│       ├── mlr.py              # KleinMLR — geodesic hyperplane MLR
-│       ├── bmlr.py             # KleinBMLR — Busemann MLR
-│       ├── pv_fc.py            # PVFC
-│       └── pv_bfc.py           # PVBFC
+│       ├── fc.py             # KleinFC  — geodesic-hyperplane FC
+│       ├── bfc.py            # KleinBFC — Busemann-horosphere FC
+│       ├── mlr.py            # KleinMLR
+│       ├── bmlr.py           # KleinBMLR
+│       ├── klein_bn.py       # KleinEinsteinBN — closed-form BN
+│       └── pv_fc.py          # PVFC (auxiliary baseline)
 │
-├── GyroBN-main/                # Training framework (modified fork)
-│   ├── GyroBNH.py              # Entry point
-│   ├── conf/nnet/              # Model configs (HNN, KleinFC, PVFC, etc.)
-│   ├── Geometry/constantcurvature/
-│   │   ├── klein.py            # KleinBall manifold (new)
-│   │   └── pv.py               # PVSpace manifold (new)
-│   └── RieNets/hnns/models/
-│       └── encoders.py         # Encoder classes (HNN_KleinFC, HNN_PVFC, etc.)
-│
-├── HBNN-main/lib/              # BFC/BMLR layers (extended with Klein/PV)
-├── test_layers.py              # Unit tests
-└── PoinnCARE-main/             # Enzyme classification (Track B)
+├── bn_microbench.py          # Closed-form vs iterative BN benchmark
+├── test_klein_bn.py          # BN unit tests
+├── test_layers.py            # Layer unit tests
+├── run.sh                    # Reproduce link-prediction experiments
+├── download_data.sh          # Fetch HGCN graph datasets
+├── TrackC_Genome/            # Genome (TEB) classification pipeline
+├── scripts/                  # Experiment launchers
+├── MODIFICATIONS.md          # Patches applied to GyroBN / HBNN forks
+└── requirements.txt
 ```
 
 ## Installation
 
 ```bash
-pip install torch hydra-core hydra-joblib-launcher omegaconf scikit-learn tensorboard geoopt
+pip install -r requirements.txt
 ```
 
-## Data
+## Quick start
 
-Download graph datasets from [HGCN](https://github.com/HazyResearch/hgcn):
+```python
+import torch
+from klein_nn import KleinManifold
+from klein_nn.layers import KleinFC, KleinBFC, KleinMLR, KleinBMLR
+
+# 1. Lift a Euclidean tensor onto the Klein ball at curvature K = -1
+x = torch.randn(32, 64) * 0.1            # (batch, dim)
+x_klein = KleinManifold.projx(x, K=-1.0) # project into the ball
+
+# 2. Apply a Klein FC layer
+fc = KleinFC(in_dim=64, out_dim=128, K=-1.0)
+h = fc(x_klein)
+
+# 3. Classify with a Klein Busemann MLR head
+head = KleinBMLR(in_dim=128, num_classes=10, K=-1.0)
+logits = head(h)
+```
+
+## Datasets
 
 ```bash
-git clone https://github.com/HazyResearch/hgcn.git
-cp -r hgcn/data/ code/data/
+bash download_data.sh    # clones HGCN datasets into ./data/
 ```
 
-Datasets: Disease (delta=0), Airport (delta=1), PubMed (delta=3.5), Cora (delta=11).
+This pulls Disease, Airport, PubMed, and Cora (Gromov $\delta$ spanning $0$ to $11$) from the [HGCN repo](https://github.com/HazyResearch/hgcn).
 
-## Usage
+## Reproduce link-prediction experiments
 
-### Link Prediction (HBNN Table 7)
+The full training pipeline lives in two third-party frameworks (not bundled here; see `MODIFICATIONS.md` for the file-level patches we apply):
 
 ```bash
-cd GyroBN-main
-
-# Klein FC on Airport
-python GyroBNH.py dataset.dataset=airport dataset.path=../data \
-  nnet=KleinFC nnet.BN_param.is_bn=False nnet.optimizer.weight_decay=1e-3 \
-  fit.epochs=5000 fit.double_precision=1
-
-# PV FC on Airport
-python GyroBNH.py dataset.dataset=airport dataset.path=../data \
-  nnet=PVFC nnet.BN_param.is_bn=False nnet.optimizer.weight_decay=1e-3 \
-  fit.epochs=5000 fit.double_precision=1
-
-# Mobius FC baseline (reproduction)
-python GyroBNH.py dataset.dataset=airport dataset.path=../data \
-  nnet=HNN nnet.BN_param.is_bn=False nnet.optimizer.weight_decay=1e-3 \
-  fit.epochs=5000 fit.double_precision=1
+git clone https://github.com/GitZH-Chen/GyroBN.git
+git clone https://github.com/GitZH-Chen/HBNN.git
+# Apply the patches listed in MODIFICATIONS.md, then:
+bash run.sh                  # all models, all four graphs
+bash run.sh KleinFC          # one model
+bash run.sh --quick          # 100 epochs, single precision (sanity check)
 ```
 
-### Available Models
+Available `run.sh` targets: `HNN`, `KleinFC`, `KleinBFC`, `LorentzFC` (plus `PVFC` as an auxiliary baseline).
 
-| Config | Encoder | Manifold | FC Layer |
-|--------|---------|----------|----------|
-| `HNN` | HNN | PoincareBall | Mobius matvec (HypLinear) |
-| `LorentzFC` | HNN_LorentzFC | Hyperboloid | Ambient Minkowski FC |
-| `BFC_P` | HNN_BFC | PoincareBall | Busemann FC |
-| `BFC_L` | HNN_BFC | Hyperboloid | Busemann FC |
-| `KleinFC` | HNN_KleinFC | KleinBall | Klein geodesic FC |
-| `KleinBFC` | HNN_BFC | KleinBall | Klein Busemann FC |
-| `PVFC` | HNN_PVFC | PVSpace | PV geodesic FC |
-| `PVBFC` | HNN_BFC | PVSpace | PV Busemann FC |
+## Hyperparameters
 
-### Hyperparameters
-
-Following HBNN (Chen et al., CVPR 2026):
+Following [HBNN](https://github.com/GitZH-Chen/HBNN) (Chen et al., CVPR 2026):
 
 | Parameter | Value |
 |-----------|-------|
@@ -109,24 +101,35 @@ Following HBNN (Chen et al., CVPR 2026):
 | Early stopping | patience=100, min_epochs=100 |
 | Precision | float64 |
 | Curvature | K=-1 (fixed) |
-| Seed | 1234 |
 | Activation | relu (FC); identity/tanh (BFC) |
 
-## Unit Tests
+## Tests
 
 ```bash
-python test_layers.py
+python test_layers.py        # forward / backward / Euclidean limit (K -> 0)
+python test_klein_bn.py      # BN-specific tests
 ```
 
-Verifies forward/backward pass, numerical stability, and Euclidean limit (K -> 0) for all Klein/PV layers.
+## Citation
+
+If you use this code, please cite (BibTeX coming with the camera-ready):
+
+```
+@inproceedings{kleinnn2026,
+  title  = {Klein Neural Networks},
+  author = {anonymous (under review)},
+  year   = {2026}
+}
+```
 
 ## References
 
-- **GyroBN**: Chen et al., "Gyrogroup Batch Normalization", ICLR 2025
-- **HBNN**: Chen et al., "Hyperbolic Busemann Neural Networks", CVPR 2026
-- **PV**: Su et al., "Proper Velocity Neural Networks", ICLR 2026
-- **HGCN**: Chami et al., "Hyperbolic Graph Convolutional Neural Networks", NeurIPS 2019
+- Ungar, *Analytic Hyperbolic Geometry and Albert Einstein's Special Theory of Relativity*, 2nd ed., 2022.
+- Chen et al., *Gyrogroup Batch Normalization* (GyroBN), ICLR 2025.
+- Chen et al., *Hyperbolic Busemann Neural Networks* (HBNN), CVPR 2026.
+- Su et al., *Proper Velocity Neural Networks* (PVNN), ICLR 2026.
+- Chami et al., *Hyperbolic Graph Convolutional Neural Networks* (HGCN), NeurIPS 2019.
 
 ## License
 
-Research use only. GyroBN and HBNN code follows their respective licenses.
+See `LICENSE`. Third-party forks (GyroBN, HBNN) follow their respective licenses.
